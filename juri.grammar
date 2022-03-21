@@ -1,0 +1,83 @@
+@precedence { spaces, newline, Identifier }
+
+@top Program {expression*}
+
+
+
+@tokens{
+    Comment {"#" ![\n]*}
+    spaces[@export] { $[\u0009 \u000b\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\ufeff]+ }
+    newline[@export] { $[\r\n\u2028\u2029] }
+    identifierChar { std.asciiLetter | $[_$\u{a1}-\u{10ffff}] }
+    word { identifierChar (identifierChar | std.digit)* }
+    Identifier { word }
+    float {std.digit+ ("." std.digit+)?}
+    Number {float | std.digit+}
+    @precedence { spaces, newline, identifier }
+    @precedence { spaces, newline, word }
+}
+
+declaration {
+    FunctionDeclaration |
+    VariableDeclaration |
+    ListDeclaration
+}
+ListDeclaration {
+    ListIdentifier "=" expression
+}
+FunctionDeclaration {
+    "fun" Identifier $[\n] 
+}
+
+functionCall {
+    Identifier "(" parameterList? ")"
+}
+
+BinaryExpression {
+  expression !times "*" expression |
+  expression !divides "/" expression |
+  expression !plus "+" expression |
+  expression !minus "-" expression
+}
+parameterList {
+    Parameter*
+}
+Parameter {
+    $[a-zA-Z]+
+}
+statement{
+    ReturnStatement |
+    IfStatement |
+    assignment |
+    functionCall
+}
+statement[@isGroup=Statement] {
+  IfStatement |
+  ExpressionStatement |
+  declaration
+}
+
+IfStatement {
+    kw<"if"> expression ((kw<"repeat"> statement*) | kw<"then"> statement)
+}
+
+ReturnStatement {kw<"return"> expression}
+
+expression {
+    functionCall |
+    BinaryExpression |
+    Number |
+    Identifier
+}
+
+assignment {
+    Identifier "=" expression
+}
+
+@skip { spaces | Comment }
+
+// Keywords
+
+kw<term> { @specialize[@name={term}]<Identifier, term> }
+
+@detectDelim
