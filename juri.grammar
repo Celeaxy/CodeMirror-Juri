@@ -1,20 +1,25 @@
-@precedence { spaces, newline, Identifier }
+@precedence { exp @left, times @left, divides @left, plus @left, minus @left, statement @cut}
 
 @top Program {expression*}
 
 
 
 @tokens{
-    Comment {"#" ![\n]*}
-    spaces[@export] { $[\u0009 \u000b\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\ufeff]+ }
-    newline[@export] { $[\r\n\u2028\u2029] }
+    LineComment {"#" ![\n\r]*}
+    spaces[@export] { ($[ \t\f] | "\\" $[\n\r])+ }
+    newline[@export] { $[\n] }
     identifierChar { std.asciiLetter | $[_$\u{a1}-\u{10ffff}] }
     word { identifierChar (identifierChar | std.digit)* }
     Identifier { word }
+    Parameter {word}
     float {std.digit+ ("." std.digit+)?}
     Number {float | std.digit+}
+    Operator {"+" | "-" | "*" | "/"}
     @precedence { spaces, newline, identifier }
     @precedence { spaces, newline, word }
+    "="[@name=Equals]
+    "=>"[@name=Arrow]
+    "(" ")" "[" "]"
 }
 
 declaration {
@@ -25,35 +30,29 @@ declaration {
 ListDeclaration {
     ListIdentifier "=" expression
 }
+
 FunctionDeclaration {
-    "fun" Identifier $[\n] 
+    kw<"fun"> Identifier Parameter* newline 
 }
 
+
 functionCall {
-    Identifier "(" parameterList? ")"
+    Identifier "(" Parameter* ")"
 }
 
 BinaryExpression {
+  expression !exp "**" expression |
   expression !times "*" expression |
   expression !divides "/" expression |
   expression !plus "+" expression |
   expression !minus "-" expression
 }
-parameterList {
-    Parameter*
-}
-Parameter {
-    $[a-zA-Z]+
-}
-statement{
-    ReturnStatement |
-    IfStatement |
-    assignment |
-    functionCall
-}
+
 statement[@isGroup=Statement] {
   IfStatement |
-  ExpressionStatement |
+  expression |
+  ReturnStatement |
+  AssignStatement |
   declaration
 }
 
@@ -74,7 +73,7 @@ assignment {
     Identifier "=" expression
 }
 
-@skip { spaces | Comment }
+@skip { spaces | LineComment }
 
 // Keywords
 
