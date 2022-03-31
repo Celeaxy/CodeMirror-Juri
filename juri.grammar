@@ -1,67 +1,85 @@
-@precedence { exp @left, times @left, divides @left, plus @left, minus @left, statement @cut}
+@precedence {If, Identifier @left, assignmentOperator @right, arithmeticOperator @left, booleanOperator @left, Operator @left, exp @left, times @left, divides @left, plus @left, minus @left, statement @cut}
 
-@top Program {expression*}
+@top Program {statement*}
 
 
 
 @tokens{
+    
     LineComment {"#" ![\n\r]*}
     spaces[@export] { ($[ \t\f] | "\\" $[\n\r])+ }
-    newline[@export] { $[\n] }
+    newline[@export] { $[\n\r] }
     identifierChar { std.asciiLetter | $[_$\u{a1}-\u{10ffff}] }
     word { identifierChar (identifierChar | std.digit)* }
-    Identifier { word }
+    ListIdentifier{":" word }
+    Identifier {ListIdentifier | word }
+
     Parameter {word}
     float {std.digit+ ("." std.digit+)?}
-    Number {float | std.digit+}
-    Operator {"+" | "-" | "*" | "/"}
-    @precedence { spaces, newline, identifier }
-    @precedence { spaces, newline, word }
-    "="[@name=Equals]
-    "=>"[@name=Arrow]
-    "(" ")" "[" "]"
+
+    Number {float}
+    assignmentOperator {$[=]}
+    booleanOperator { $[<>] }
+    arithmeticOperator {$[+\-*/]}
+    Operator {(arithmeticOperator| booleanOperator | assignmentOperator)+}
+    @precedence { spaces, newline, ListIdentifier, Identifier, Parameter}
+    "(" ")"
+    "[" "]"
 }
 
 declaration {
     FunctionDeclaration |
-    VariableDeclaration |
+    OperatorDeclaration |
     ListDeclaration
 }
+
 ListDeclaration {
-    ListIdentifier "=" expression
+    ListIdentifier assignmentOperator (listLiteral | listInit)
 }
+
+listLiteral {
+    "[" ((Number kw<"to"> Number) | (Number)*) "]"
+}
+listInit {
+    kw<"init"> Number (Number | (kw<"as"> Identifier))
+}
+
 
 FunctionDeclaration {
-    kw<"fun"> Identifier Parameter* newline 
+    kw<"fun"> Identifier !Identifier Parameter* statement* 
 }
 
+OperatorDeclaration {
+    kw<"operator"> Operator Parameter* statement*
+}
 
 functionCall {
     Identifier "(" Parameter* ")"
 }
 
 BinaryExpression {
-  expression !exp "**" expression |
-  expression !times "*" expression |
-  expression !divides "/" expression |
-  expression !plus "+" expression |
-  expression !minus "-" expression
+  expression (!arithmeticOperator arithmeticOperator | !booleanOperator booleanOperator) expression
 }
 
-statement[@isGroup=Statement] {
-  IfStatement |
+statement {
+  (ifStatement |
+  iterateStatement |
   expression |
-  ReturnStatement |
-  AssignStatement |
-  declaration
+  returnStatement |
+  breakStatement |
+  assignment |
+  declaration) newline
 }
 
-IfStatement {
+iterateStatement{
+    kw<"iterate"> expression kw<"as"> Identifier statement*
+}
+ifStatement {
     kw<"if"> expression ((kw<"repeat"> statement*) | kw<"then"> statement)
 }
 
-ReturnStatement {kw<"return"> expression}
-
+returnStatement {kw<"return"> expression}
+breakStatement {kw<"break">}
 expression {
     functionCall |
     BinaryExpression |
@@ -70,7 +88,7 @@ expression {
 }
 
 assignment {
-    Identifier "=" expression
+    Identifier assignmentOperator expression
 }
 
 @skip { spaces | LineComment }
